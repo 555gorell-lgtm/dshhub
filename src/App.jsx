@@ -88,6 +88,17 @@ function agoStr(d, li) {
   return TR.yAgo[li].replace("{n}", Math.floor(diff / 365));
 }
 
+function downloadZip(fullName, kind) {
+  const ghUrl = "https://github.com/" + fullName + "/archive/HEAD.zip";
+  const url = kind === "gh" ? ghUrl
+    : kind === "fast" ? "https://ghfast.top/" + ghUrl
+    : "https://gh-proxy.com/" + ghUrl;
+  const a = document.createElement("a");
+  a.href = url;
+  a.target = "_blank"; a.rel = "noreferrer";
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
 const MIRRORS = [
   { id: "r2", name: "PluginHub R2 (своё зеркало)", mbps: 25, live: false },
   { id: "proxy", name: "gh-proxy.com", mbps: 6, live: true },
@@ -135,222 +146,7 @@ function CardMeta({ repo }) {
   return <span style={{ whiteSpace: "nowrap" }}>{sizeStr ? "💾 " + sizeStr : "💾 …"} · 📦 ZIP</span>;
 }
 
-function AdModal({ repo, li, onClose }) {
-  const t = (k) => TR[k][li];
-  const d = useRepoDetail(repo.full_name);
-  const [mode, setMode] = useState(null);
-  const [left, setLeft] = useState(null);
-  const [warn, setWarn] = useState(false);
-  const [autoDl, setAutoDl] = useState(false);
-  const [fired, setFired] = useState(false);
-  const [mirror, setMirror] = useState("proxy");
-  const downloadUrl = mirror === "proxy"
-    ? "https://gh-proxy.com/https://github.com/" + repo.full_name + "/archive/refs/heads/main.zip"
-    : "https://github.com/" + repo.full_name + "/releases";
-
-  const L = [
-    {
-      choose: "Как получить плагин?",
-      adNote: "Выберите тип рекламы — после просмотра скачивание откроется сразу",
-      ad1: "🎬 Реклама 15 секунд", ad2: "🎬 Реклама 30 секунд", ad3: "🎬 Реклама 1 минута",
-      bg: "🔕 Свернуть окно и подождать",
-      bgNote: "Таймер идёт в фоне (до 2 минут). Окно закрывать нельзя — иначе плагин не скачается. Свернуть — можно.",
-      auto: "Загрузка начнётся автоматически после ожидания",
-      push: "Придёт пуш-уведомление «можно качать»",
-      warnTitle: "⚠️ Предупреждение",
-      warnText: "Если закроете окно — не сможете скачать плагин. Свернуть можно, но не больше 2 минут.",
-      cont: "Продолжить",
-      closeAnyway: "Всё равно закрыть",
-      bgWait: "Ожидание в фоне",
-      bgHint: "Окно можно свернуть — таймер идёт дальше. Закрывать нельзя.",
-      mirrorTitle: "Зеркало загрузки — честное время:",
-      honest: "Оценка по скорости зеркала; фактическое время зависит и от вашего интернета.",
-      installNote: "Формат: ZIP · установка — распаковка, секунды",
-    },
-    {
-      choose: "How to get the plugin?",
-      adNote: "Pick an ad type — download unlocks right after watching",
-      ad1: "🎬 15-second ad", ad2: "🎬 30-second ad", ad3: "🎬 1-minute ad",
-      bg: "🔕 Minimize and wait",
-      bgNote: "Timer runs in background (up to 2 minutes). Do not close the window — or the download is lost. Minimizing is fine.",
-      auto: "Download starts automatically after the wait",
-      push: "You will get a push notification when ready",
-      warnTitle: "⚠️ Warning",
-      warnText: "If you close this window, you will not be able to download the plugin. Minimizing is allowed — up to 2 minutes.",
-      cont: "Continue",
-      closeAnyway: "Close anyway",
-      bgWait: "Waiting in background",
-      bgHint: "You may minimize this window — the timer keeps running. Do not close it.",
-      mirrorTitle: "Download mirror — honest ETA:",
-      honest: "Estimate at mirror speed; your connection decides the rest.",
-      installNote: "Format: ZIP archive · install by unzipping, takes seconds",
-    },
-    {
-      choose: "如何获取插件？",
-      adNote: "选择广告类型，观看后立即解锁下载",
-      ad1: "🎬 15 秒广告", ad2: "🎬 30 秒广告", ad3: "🎬 1 分钟广告",
-      bg: "🔕 最小化窗口并等待",
-      bgNote: "计时器在后台运行（最多 2 分钟）。不能关闭窗口，否则无法下载插件。可以最小化。",
-      auto: "等待结束后自动开始下载",
-      push: "就绪后会收到推送通知",
-      warnTitle: "⚠️ 注意",
-      warnText: "关闭窗口后将无法下载插件。可以最小化窗口，但不超过 2 分钟。",
-      cont: "继续",
-      closeAnyway: "仍然关闭",
-      bgWait: "后台等待中",
-      bgHint: "窗口可以最小化，计时器继续运行。请勿关闭。",
-      mirrorTitle: "下载镜像 — 真实预估：",
-      honest: "按镜像速度估算，实际还取决于你的网络。",
-      installNote: "格式：ZIP 压缩包 · 解压即装，只需几秒",
-    },
-  ][li];
-
-  useEffect(() => {
-    if (left == null || left <= 0) return;
-    const id = setTimeout(() => setLeft(l => Math.max(0, (l || 0) - 1)), 1000);
-    return () => clearTimeout(id);
-  }, [left]);
-
-  const ready = left === 0;
-
-  useEffect(() => {
-    if (!ready || fired) return;
-    setFired(true);
-    try {
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("PluginHub", { body: repo.name + " — " + (li === 0 ? "можно качать!" : li === 1 ? "ready to download!" : "可以下载了！") });
-      }
-    } catch (e) {}
-    if (autoDl) {
-      const a = document.createElement("a");
-      a.href = downloadUrl; a.target = "_blank"; a.rel = "noreferrer";
-      document.body.appendChild(a); a.click(); a.remove();
-    }
-  }, [ready, fired, autoDl, downloadUrl]);
-
-  const startAd = (n) => { setMode("ad"); setLeft(n); };
-  const startBg = () => {
-    setMode("bg"); setLeft(120);
-    try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch (e) {}
-  };
-  const tryClose = () => { if (mode && !ready && !warn) setWarn(true); else onClose(); };
-
-  const elapsed = mode === "bg" ? 120 - (left || 0) : 0;
-  const pct = mode === "bg" ? Math.round((elapsed / 120) * 100) : 0;
-  const soonWord = li === 0 ? "скоро" : li === 1 ? "soon" : "即将上线";
-
-  const mirrorPicker = ready && (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>🚚 {L.mirrorTitle}</div>
-      {MIRRORS.map(m => {
-        const eta = d ? estTime(d.size, m.mbps) : null;
-        const sel = mirror === m.id;
-        return (
-          <button key={m.id} disabled={!m.live} onClick={() => setMirror(m.id)}
-            style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", marginBottom: 6, borderRadius: 8, border: "1px solid " + (sel ? "#2f81f7" : "#30363d"), background: sel ? "#1f6feb22" : "#0d1117", color: m.live ? "#e6edf3" : "#8b949e", cursor: m.live ? "pointer" : "not-allowed", opacity: m.live ? 1 : 0.55 }}>
-            <span>{m.live ? "✅" : "🕓"} {m.name}</span>
-            <span style={{ fontSize: 12, color: "#8b949e" }}>
-              {m.live ? "≈ " + fmtTime(eta) + " · ~" + m.mbps + " МБ/с" : soonWord}
-            </span>
-          </button>
-        );
-      })}
-      <div style={{ fontSize: 11, color: "#8b949e" }}>{L.honest}</div>
-      <div style={{ fontSize: 11, color: "#8b949e", marginTop: 4 }}>{L.installNote}</div>
-    </div>
-  );
-
-  return (
-    <div style={overlay} onClick={tryClose}>
-      <div style={{ ...modalBox, position: "relative" }} onClick={e => e.stopPropagation()}>
-        {mode === null && (
-          <>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{L.choose}</div>
-            <div style={{ color: "#8b949e", fontSize: 12, marginBottom: 14 }}>{L.adNote}</div>
-            {[15, 30, 60].map(n => (
-              <button key={n} onClick={() => startAd(n)}
-                style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", marginBottom: 8, borderRadius: 8, border: "1px solid #30363d", background: "#0d1117", color: "#e6edf3", cursor: "pointer", fontSize: 14 }}>
-                <span>{n === 15 ? L.ad1 : n === 30 ? L.ad2 : L.ad3}</span>
-                <span style={{ color: "#3fb950", fontSize: 12 }}>{t("download")} →</span>
-              </button>
-            ))}
-            <div style={{ borderTop: "1px solid #21262d", margin: "10px 0" }} />
-            <button onClick={startBg}
-              style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", marginBottom: 8, borderRadius: 8, border: "1px solid #a371f7", background: "#1f6feb11", color: "#e6edf3", cursor: "pointer", fontSize: 14 }}>
-              <span>{L.bg}</span>
-              <span style={{ color: "#8b949e", fontSize: 12 }}>⏱ 2:00</span>
-            </button>
-            <div style={{ color: "#8b949e", fontSize: 12, margin: "4px 0 10px" }}>{L.bgNote}</div>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#c9d1d9", marginBottom: 4, cursor: "pointer" }}>
-              <input type="checkbox" checked={autoDl} onChange={e => setAutoDl(e.target.checked)} />
-              {L.auto}
-            </label>
-            <div style={{ color: "#8b949e", fontSize: 12, marginBottom: 12 }}>🔔 {L.push}</div>
-          </>
-        )}
-
-        {mode === "ad" && (
-          <>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>📢 {t("adTitle")}</div>
-            <div style={{ background: "#21262d", border: "1px solid #30363d", borderRadius: 8, height: 140, display: "flex", alignItems: "center", justifyContent: "center", color: "#8b949e", fontSize: 14, margin: "12px 0 16px" }}>
-              📺 Рекламный блок · РСЯ / AdMob
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-              <div style={{ fontSize: 32, fontWeight: 700, minWidth: 60, textAlign: "center", color: ready ? "#3fb950" : "#e6edf3" }}>
-                {ready ? "✓" : (left || 0) + "с"}
-              </div>
-              <div style={{ flex: 1, height: 8, background: "#0d1117", borderRadius: 4, overflow: "hidden" }}>
-                <div style={{ width: (ready ? 100 : 0) + "%", height: "100%", background: "#2f81f7" }} />
-              </div>
-            </div>
-            {ready && mirrorPicker}
-          </>
-        )}
-
-        {mode === "bg" && (
-          <>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>🔕 {L.bgWait}</div>
-            <div style={{ color: "#8b949e", fontSize: 12, marginBottom: 12 }}>{L.bgHint}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-              <div style={{ fontSize: 32, fontWeight: 700, minWidth: 70, textAlign: "center", color: ready ? "#3fb950" : "#a371f7" }}>
-                {ready ? "✓" : Math.floor((left || 0) / 60) + ":" + String((left || 0) % 60).padStart(2, "0")}
-              </div>
-              <div style={{ flex: 1, height: 8, background: "#0d1117", borderRadius: 4, overflow: "hidden" }}>
-                <div style={{ width: pct + "%", height: "100%", background: "#a371f7", transition: "width 1s linear" }} />
-              </div>
-            </div>
-            {!ready && <div style={{ color: "#8b949e", fontSize: 12, marginBottom: 12 }}>🔔 {L.push}</div>}
-            {ready && mirrorPicker}
-          </>
-        )}
-
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          {ready ? (
-            <a href={downloadUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
-              <button style={greenBtn}>{t("download")}</button>
-            </a>
-          ) : (
-            <button style={{ ...greenBtn, opacity: 0.4, cursor: "not-allowed" }} disabled>{t("download")}</button>
-          )}
-          <button style={ghostBtn} onClick={tryClose}>{t("close")}</button>
-        </div>
-
-        {warn && (
-          <div style={{ position: "absolute", inset: 0, background: "rgba(1,4,9,.92)", borderRadius: 14, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", zIndex: 2 }}>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>{L.warnTitle}</div>
-            <div style={{ color: "#c9d1d9", fontSize: 14, lineHeight: 1.6, marginBottom: 18 }}>{L.warnText}</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button style={primaryBtn} onClick={() => setWarn(false)}>{L.cont}</button>
-              <button style={ghostBtn} onClick={onClose}>{L.closeAnyway}</button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function InfoModal({ repo, li, onClose, onTag }) {
+function InfoModal({ repo, li, onClose, onTag, onTranslate }) {
   const t = (k) => TR[k][li];
   const d = useRepoDetail(repo.full_name);
   const sizeStr = d ? (d.size >= 1024 ? (d.size / 1024).toFixed(1) + " MB" : d.size + " KB") : "—";
@@ -400,6 +196,7 @@ function InfoModal({ repo, li, onClose, onTag }) {
         )}
 
         <div style={{ display: "flex", gap: 8, marginTop: 18, justifyContent: "flex-end" }}>
+          <button style={ghostBtn} onClick={() => onTranslate(repo.description || repo.name)}>🌍 {li === 0 ? "Перевести описание" : li === 1 ? "Translate description" : "翻译描述"}</button>
           <a href={repo.html_url} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
             <button style={ghostBtn}>{t("openGithub")}</button>
           </a>
@@ -412,9 +209,9 @@ function InfoModal({ repo, li, onClose, onTag }) {
   );
 }
 
-function TranslatorModal({ li, onClose }) {
+function TranslatorModal({ li, onClose, seed }) {
   const t = (k) => TR[k][li];
-  const [text, setText] = useState("");
+  const [text, setText] = useState(seed || "");
   const [src, setSrc] = useState("ru");
   const [dst, setDst] = useState("en");
   const [out, setOut] = useState("");
@@ -434,6 +231,14 @@ function TranslatorModal({ li, onClose }) {
     } finally {
       setBusy(false);
     }
+  };
+
+  const paste = async () => {
+    try { const clip = await navigator.clipboard.readText(); if (clip) setText(clip); } catch (e) {}
+  };
+
+  const copyOut = async () => {
+    try { if (out) await navigator.clipboard.writeText(out); } catch (e) {}
   };
 
   return (
@@ -695,9 +500,7 @@ function AuthModal({ li, onClose, onAuth }) {
 function ProfileModal({ user, li, onClose, onLogout, onPricing }) {
   const isRu = li === 0, isEn = li === 1;
   const planName = isRu ? "Бесплатно" : isEn ? "Free" : "免费";
-  const planNote = isRu ? "5 ГБ трафика зеркала в месяц · до 3 плагинов в пакете · реклама перед скачиванием"
-    : isEn ? "5 GB mirror traffic per month · up to 3 plugins per pack · ads before download"
-    : "每月 5 GB 镜像流量 · 打包最多 3 个 · 下载前广告";
+  const planNote = isRu ? "5 ГБ трафика зеркала в месяц · до 3 плагинов в пакете · без рекламы" : isEn ? "5 GB mirror traffic per month · up to 3 plugins per pack · no ads" : "每月 5 GB 镜像流量 · 打包最多 3 个 · 无广告";
   const pricing = isRu ? "Сменить тариф" : isEn ? "Change plan" : "更改套餐";
   const logout = isRu ? "Выйти" : isEn ? "Sign out" : "退出登录";
   const withUs = isRu ? "с нами" : isEn ? "with us" : "陪伴我们";
@@ -783,8 +586,8 @@ function PricingPage({ li, onClose }) {
   const PL50 = isRu ? "до 50 плагинов" : isEn ? "up to 50 plugins" : "最多 50 个";
 
   const UPLAN = [
-    { p: 0, n: isRu ? "Бесплатно" : isEn ? "Free" : "免费", rec: false, v: ["5 GB" + U, "100 MB", AD0, PL3, UL.up + " 10 MB/s", "1", "5"] },
-    { p: 199, n: isRu ? "Стартер" : isEn ? "Starter" : "入门", rec: false, v: ["50 GB" + U, "500 MB", AD1, PL10, UL.up + " 25 MB/s", "3", "60"] },
+    { p: 0, n: isRu ? "Бесплатно" : isEn ? "Free" : "免费", rec: false, v: ["5 GB" + U, "100 MB", UL.noads, PL3, UL.up + " 10 MB/s", "1", "5"] },
+    { p: 199, n: isRu ? "Стартер" : isEn ? "Starter" : "入门", rec: false, v: ["50 GB" + U, "500 MB", UL.noads, PL10, UL.up + " 25 MB/s", "3", "60"] },
     { p: 499, n: "Pro", rec: true, v: ["300 GB" + U, "2 GB", UL.noads, PL50, UL.prio, "5", "180"] },
     { p: 1990, n: "Max", rec: false, v: ["2 TB" + U, "10 GB", UL.noads, UL.unl, UL.prio, "10", "300"] },
   ];
@@ -922,6 +725,30 @@ function AdSlot({ li, th }) {
     </div>
   );
 }
+const TICKER_ITEMS = [
+  { n: "🆕 Новые модели ИИ — обзор недели", u: "https://www.youtube.com/@viktorgamesandbusinessgore440" },
+  { n: "🔌 Как подключить плагины к новой модели — гайды на YouTube", u: "https://www.youtube.com/@viktorgamesandbusinessgore440" },
+  { n: "🎬 Видеообзоры моделей ИИ — Rutube", u: "https://rutube.ru/search/?text=новые+модели+ИИ" },
+  { n: "💬 Новости ИИ и плагинов — канал в MAX", u: "https://max.ru/u/f9LHodD0cOKYNaEcNaqKkR0YWam2Zu6PLq0OkBdVs1MJMEhd0jludaVSNPw" },
+];
+
+function Ticker({ th }) {
+  const set = (k) => TICKER_ITEMS.map((it, i) => (
+    <a key={k + i} href={it.u} target="_blank" rel="noreferrer" style={{ color: th.tag, fontSize: 13, textDecoration: "none", whiteSpace: "nowrap" }}>{it.n}</a>
+  ));
+  return (
+    <div style={{ background: th.adBg, border: "1px solid " + th.border, borderRadius: 8, overflow: "hidden", margin: "0 0 16px" }}>
+      <style>{".ph-ticker-track{display:inline-flex;white-space:nowrap;padding:8px 0;animation:ph-ticker-scroll 30s linear infinite}.ph-ticker-wrap:hover .ph-ticker-track{animation-play-state:paused}.ph-ticker-set{display:inline-flex;gap:40px;padding-right:40px}.ph-ticker-set a:hover{text-decoration:underline}@keyframes ph-ticker-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}"}</style>
+      <div className="ph-ticker-wrap" style={{ overflow: "hidden" }}>
+        <div className="ph-ticker-track">
+          <div className="ph-ticker-set">{set("a")}</div>
+          <div className="ph-ticker-set" aria-hidden="true">{set("b")}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [plugins, setPlugins] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -933,7 +760,7 @@ function App() {
   const [li, setLi] = useState(0);
   const [page, setPage] = useState(1);
   const [more, setMore] = useState(false);
-  const [adRepo, setAdRepo] = useState(null);
+  
   const [infoRepo, setInfoRepo] = useState(null);
   const [trOpen, setTrOpen] = useState(false);
   const [priceOpen, setPriceOpen] = useState(false);
@@ -943,6 +770,11 @@ function App() {
   const [total, setTotal] = useState(0);
   const [pack, setPack] = useState([]);
   const [packOpen, setPackOpen] = useState(false);
+  useEffect(() => {
+    const l = (navigator.language || "ru").toLowerCase();
+    if (l.startsWith("zh")) setLi(2); else if (!l.startsWith("ru")) setLi(1);
+  }, []);
+  const [trSeed, setTrSeed] = useState("");
 
   const t = (k) => TR[k][li];
 
@@ -986,7 +818,16 @@ function App() {
   const searchByTag = (tg) => { setCat("all"); setQ("topic:" + tg); setPage(1); };
   const togglePack = (p) => setPack(prev => prev.some(x => x.id === p.id) ? prev.filter(x => x.id !== p.id) : [...prev, p]);
 
-  const dl = { hour: 128, today: 2417, week: 13820, total: 1284000 };
+  const [dl, setDl] = useState({ hour: 128, today: 2417, week: 13820, total: 1284000 });
+  useEffect(() => {
+    const id = setInterval(() => setDl(prev => ({
+      hour: prev.hour + (Math.random() < 0.35 ? 1 : 0),
+      today: prev.today + (Math.random() < 0.55 ? 1 : 0),
+      week: prev.week + (Math.random() < 0.45 ? 1 : 0),
+      total: prev.total + (Math.random() < 0.65 ? 1 : 0),
+    })), 1200);
+    return () => clearInterval(id);
+  }, []);
   const dlLabel = li === 0
     ? { h: "за час", d: "сегодня", w: "за неделю", t: "всего", note: "(демо-счётчики, реальная статистика появится с бэкендом)" }
     : li === 1
@@ -995,14 +836,15 @@ function App() {
   const platforms = li === 0 ? "Платформы: Windows · Linux · Android · iOS · Браузер"
     : li === 1 ? "Platforms: Windows · Linux · Android · iOS · Browser"
     : "平台：Windows · Linux · Android · iOS · 浏览器";
-  const socialLabel = li === 0 ? "Соцсети и реклама:" : li === 1 ? "Social and ads:" : "社交与广告：";
+  const socialLabel = li === 0 ? "Соцсети:" : li === 1 ? "Social:" : "社交：";
   const availWord = li === 0 ? "доступно для скачивания" : li === 1 ? "available for download" : "可下载";
   const footerCols = [
     { title: t("aboutUs"), items: [t("aboutText")], text: true },
-    { title: t("platform"), items: [
-      t("allPlugins") + " — " + fmtNum(total),
+    { title: t("platform"), sub: li === 0 ? "Каталог обновляется сам: новые репозитории с темой dsh-plugin подхватываются без очереди" : li === 1 ? "The catalog updates itself: new dsh-plugin repos appear automatically" : "目录自动更新，无需等待", items: [
+      { i: "🌐", n: t("allPlugins") + " — " + fmtNum(total), act: "all" },
       t("categories") + " — " + (CATS.length - 1) + (li === 0 ? " (7 тем + «Все»)" : ""),
-      t("top"), t("fresh"),
+      { i: "⭐", n: t("top"), act: "top" },
+      { i: "🆕", n: t("fresh"), act: "fresh" },
       platforms,
     ]},
     { title: "📊 " + (li === 0 ? "Скачивания" : li === 1 ? "Downloads" : "下载统计"), items: [
@@ -1012,23 +854,31 @@ function App() {
       dlLabel.t + ": " + fmtNum(dl.total),
       dlLabel.note,
     ]},
-    { title: t("forDevs"), items: [
+    { title: t("forDevs"), sub: li === 0 ? "Публикуете репозиторий на GitHub — каталог замечает его сам" : li === 1 ? "Publish a GitHub repo — the catalog picks it up automatically" : "发布 GitHub 仓库即自动收录", items: [
       t("uploadPlugin") + " — " + fmtNum(total) + " " + availWord,
       t("docs"),
       "API:",
-      "· GitHub Search API — " + (li === 0 ? "поиск плагинов" : li === 1 ? "plugin search" : "插件搜索"),
-      "· GitHub Repos API — " + (li === 0 ? "детали, лицензии, размер" : li === 1 ? "details, licenses, size" : "详情、许可、大小"),
-      "· MyMemory API — " + (li === 0 ? "переводчик текста" : li === 1 ? "text translator" : "文本翻译"),
-      "· РСЯ API — " + (li === 0 ? "реклама (план)" : li === 1 ? "ads (planned)" : "广告（计划）"),
-      "· VirusTotal API — " + (li === 0 ? "проверка файлов (план)" : li === 1 ? "file scan (planned)" : "文件扫描（计划）"),
+      { i: "·", n: "GitHub Search API — " + (li === 0 ? "поиск плагинов" : li === 1 ? "plugin search" : "插件搜索"), u: "https://docs.github.com/rest/search" },
+      { i: "·", n: "GitHub Repos API — " + (li === 0 ? "детали, лицензии, размер" : li === 1 ? "details, licenses, size" : "详情、许可、大小"), u: "https://docs.github.com/rest/repos/repos" },
+      { i: "·", n: "Переводчик — Google + MyMemory (запас)", u: "https://mymemory.translated.net/doc/spec.php" },
+      { i: "·", n: "VirusTotal API — " + (li === 0 ? "проверка файлов (план)" : li === 1 ? "file scan (planned)" : "文件扫描（计划）"), u: "https://docs.virustotal.com/" },
     ]},
-    { title: t("info"), items: [
+    { title: t("info"), sub: li === 0 ? "Мы на связи во всех сетях — выбирайте любую" : li === 1 ? "We are on every network — pick any" : "全平台在线", items: [
       socialLabel,
-      { i: "💬", n: "WhatsApp Business", u: "https://wa.me/79990000000" },
+      { i: "📞", n: "E-mail", u: "mailto:gorelov8business@gmail.com" },
+      { i: "💬", n: "WhatsApp Business", u: "https://wa.me/79505793201" },
       { i: "✈️", n: "Telegram", u: "#" },
-      { i: "🌐", n: "VK", u: "#" },
+      { i: "🟢", n: "MAX", u: "https://max.ru/u/f9LHodD0cOKYNaEcNaqKkR0YWam2Zu6PLq0OkBdVs1MJMEhd0jludaVSNPw" },
+      { i: "🔵", n: "VK", u: "#" },
       { i: "▶️", n: "YouTube", u: "https://www.youtube.com/@viktorgamesandbusinessgore440" },
-      t("terms"), t("privacy"), t("moderation"), t("contact"),
+      { i: "📺", n: "Rutube", u: "#" },
+      { i: "📌", n: "Pinterest", u: "https://ru.pinterest.com/555gorell" },
+      { i: "🟠", n: "Одноклассники", u: "#" },
+      { i: "📘", n: "Facebook", u: "https://www.facebook.com/Ten-Stars-Design-2081341318827570/" },
+      { i: "📷", n: "Instagram", u: "#" },
+      { i: "✖️", n: "Twitter / X", u: "https://x.com/555gorell1" },
+      { i: "🧵", n: "Threads", u: "https://www.threads.com/@tenstarsdesign" },
+      { i: "🎮", n: "Discord", u: "#" },      t("terms"), t("privacy"), t("moderation"), t("contact"),
     ]},
   ];
 
@@ -1065,9 +915,7 @@ function App() {
         ) : (
           <button style={ghostBtn} onClick={() => setAuthOpen(true)}>{t("login")}</button>
         )}
-      </header>
-
-      <div style={{ display: "flex", gap: 6, padding: "12px 20px 4px", overflowX: "auto", flexWrap: "wrap" }}>
+<div className="ph-cats-in-header" style={{ display: "flex", gap: 6, padding: "8px 20px", width: "100%", overflowX: "auto", flexWrap: "wrap" }}>
         {CATS.map(c => (
           <button key={c.id} title={c.desc[li]} onClick={() => setCat(c.id)}
             style={{ padding: "6px 14px", borderRadius: 20, border: "1px solid " + (cat === c.id ? th.accent : th.border), background: cat === c.id ? th.accent : "transparent", color: cat === c.id ? "#fff" : th.dim, cursor: "pointer", fontSize: 13, whiteSpace: "nowrap", transition: "all .2s" }}>
@@ -1075,6 +923,8 @@ function App() {
           </button>
         ))}
       </div>
+            </header>
+
       <div style={{ padding: "4px 20px 8px", color: th.dim, fontSize: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span>{activeCat ? activeCat.desc[li] : ""}</span>
         {q.startsWith("topic:") && (
@@ -1086,6 +936,7 @@ function App() {
       </div>
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 20px 40px" }}>
+        <Ticker li={li} th={th} />
         <AdSlot li={li} th={th} />
 
         {loading && plugins.length === 0 && <div style={{ textAlign: "center", padding: 40, color: th.dim }}>{t("loading")}</div>}
@@ -1128,7 +979,8 @@ function App() {
                   style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid " + (pack.some(x => x.id === p.id) ? th.accent : th.border), background: pack.some(x => x.id === p.id) ? th.accent : "transparent", color: pack.some(x => x.id === p.id) ? "#fff" : th.dim, cursor: "pointer", fontSize: 13 }}>
                   {pack.some(x => x.id === p.id) ? "✓ " + (li === 0 ? "в пакете" : li === 1 ? "in pack" : "已加入") : "＋ " + (li === 0 ? "в пакет" : li === 1 ? "to pack" : "打包")}
                 </button>
-                <button style={greenBtn} onClick={() => setAdRepo(p)}>{t("downloadAd")}</button>
+                <button style={greenBtn} onClick={() => downloadZip(p.full_name)}>{t("download")}</button>
+                <button style={ghostBtn} title={li === 0 ? "Перевести описание" : li === 1 ? "Translate description" : "翻译描述"} onClick={() => { setTrSeed(p.description || ""); setTrOpen(true); }}>🌍</button>
                 <button style={ghostBtn} onClick={() => setInfoRepo(p)}>{t("about")}</button>
               </div>
             </div>
@@ -1150,12 +1002,27 @@ function App() {
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 24 }}>
           {footerCols.map((col, i) => (
             <div key={i}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>{col.title}</div>
-              {col.text ? (
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{col.title}</div>
+              {col.sub && <div style={{ color: th.dim, fontSize: 12, marginBottom: 8, lineHeight: 1.5 }}>{col.sub}</div>}
+              {col.tablo ? (
+                <div>
+                  {col.items.map((lb, j) => (
+                    <div key={j} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13, padding: "3px 0", color: th.dim, fontFamily: "Consolas, monospace" }}>
+                      <span>{lb}</span>
+                      <span style={{ color: "#3fb950", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{col.vals[j].toLocaleString("ru-RU")}</span>
+                    </div>
+                  ))}
+                  {col.note && <div style={{ color: th.dim, fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>{col.note}</div>}
+                </div>
+              ) : col.text ? (
                 <div style={{ color: th.dim, fontSize: 13, lineHeight: 1.6 }}>{col.items[0]}</div>
               ) : (
                 col.items.map((it, j) =>
-                  it && typeof it === "object" ? (
+                  it && typeof it === "object" && it.act ? (
+                    <button key={j} onClick={() => { if (it.act === "all") { setCat("all"); setQ("dsh-plugin"); } else if (it.act === "top") setSort("stars"); else if (it.act === "fresh") setSort("updated"); }} style={{ display: "block", background: "none", border: "none", color: th.dim, fontSize: 13, padding: "3px 0", cursor: "pointer", textAlign: "left", fontFamily: "inherit" }}
+                      onMouseEnter={e => e.currentTarget.style.color = th.accent}
+                      onMouseLeave={e => e.currentTarget.style.color = th.dim}>{it.i} {it.n}</button>
+                  ) : it && typeof it === "object" ? (
                     <a key={j} href={it.u} target="_blank" rel="noreferrer" style={{ display: "block", color: th.dim, fontSize: 13, textDecoration: "none", padding: "3px 0" }}
                       onMouseEnter={e => e.currentTarget.style.color = th.accent}
                       onMouseLeave={e => e.currentTarget.style.color = th.dim}>{it.i} {it.n}</a>
@@ -1169,14 +1036,15 @@ function App() {
         </div>
         <div style={{ maxWidth: 1200, margin: "24px auto 0", paddingTop: 16, borderTop: "1px solid " + th.border, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, color: th.dim, fontSize: 12 }}>
           <span>© 2026 PluginHub · {t("rights")}</span>
-          <span>Данные: GitHub API · РСЯ / AdMob</span>
+          <span>GitHub API</span>
+          <span>Instagram и Facebook принадлежат Meta — признана экстремистской и запрещена в РФ</span>
           <span>v0.6.3</span>
         </div>
       </footer>
 
-      {adRepo && <AdModal repo={adRepo} li={li} onClose={() => setAdRepo(null)} />}
-      {infoRepo && <InfoModal repo={infoRepo} li={li} onClose={() => setInfoRepo(null)} onTag={searchByTag} />}
-      {trOpen && <TranslatorModal li={li} onClose={() => setTrOpen(false)} />}
+      
+      {infoRepo && <InfoModal repo={infoRepo} li={li} onClose={() => setInfoRepo(null)} onTag={searchByTag} onTranslate={(txt) => { setTrSeed(txt || ""); setInfoRepo(null); setTrOpen(true); }} />}
+      {trOpen && <TranslatorModal li={li} onClose={() => setTrOpen(false)} seed={trSeed} />}
       {packOpen && <PackModal items={pack} li={li} onClose={() => setPackOpen(false)} />}
       {priceOpen && <PricingPage li={li} onClose={() => setPriceOpen(false)} />}
       {authOpen && <AuthModal li={li} onClose={() => setAuthOpen(false)} onAuth={setUser} />}
