@@ -488,7 +488,7 @@ function AuthModal({ li, onClose, onAuth }) {
 
         <div style={{ borderTop: "1px solid #21262d", margin: "14px 0 10px" }} />
         <div style={{ color: "#8b949e", fontSize: 12, marginBottom: 8 }}>{L.oauth}</div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button style={{ ...ghostBtn, flex: 1 }} onClick={() => alert(L.oauthSoon)}>🅰 Яндекс ID</button>
           <button style={{ ...ghostBtn, flex: 1 }} onClick={() => alert(L.oauthSoon)}>🐙 GitHub</button>
         </div>
@@ -686,42 +686,10 @@ function PricingPage({ li, onClose }) {
   );
 }
 
-const SHORTS = [
-  { id: "ЗАМЕНИТЕ_ID_1", title: "Как установить плагин DSH за 30 секунд" },
-  { id: "ЗАМЕНИТЕ_ID_2", title: "Плагин дня: обзор" },
-  { id: "ЗАМЕНИТЕ_ID_3", title: "Топ-5 плагинов недели" },
-];
-
 function AdSlot({ li, th }) {
-  const ref = useRef(null);
-  const [vis, setVis] = useState(false);
-  useEffect(() => {
-    if (!ref.current) return;
-    const o = new IntersectionObserver(es => { es.forEach(e => { if (e.isIntersecting) setVis(true); }); }, { threshold: 0.25 });
-    o.observe(ref.current);
-    return () => o.disconnect();
-  }, []);
-  const isShort = Math.random() < 0.35;
-  if (!isShort) return (
-    <div ref={ref} style={{ margin: "8px 0 16px", padding: 16, background: th.adBg, borderRadius: 8, textAlign: "center", color: th.dim, fontSize: 13, border: "1px solid " + th.border }}>
-      📢 Реклама (РСЯ / AdMob) — 728×90
-    </div>
-  );
-  const s = SHORTS[Math.floor(Math.random() * SHORTS.length)];
   return (
-    <div ref={ref} style={{ margin: "8px 0 16px", background: th.adBg, borderRadius: 8, border: "1px solid " + th.border, overflow: "hidden" }}>
-      <div style={{ position: "relative", width: "100%", paddingBottom: "56.25%" }}>
-        {vis ? (
-          <iframe src={"https://www.youtube-nocookie.com/embed/" + s.id} title={s.title} allow="encrypted-media; picture-in-picture" allowFullScreen
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }} />
-        ) : (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: th.dim, fontSize: 14 }}>▶️ {s.title}</div>
-        )}
-      </div>
-      <div style={{ padding: "6px 12px", borderTop: "1px solid " + th.border, color: th.dim, fontSize: 12, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
-        <span>🎬 PluginHub Shorts</span>
-        <span>{li === 0 ? "иногда вместо рекламы — наш шортс" : li === 1 ? "sometimes instead of an ad" : "有时代替广告"}</span>
-      </div>
+    <div style={{ margin: "8px 0 16px", padding: 16, background: th.adBg, borderRadius: 8, textAlign: "center", color: th.dim, fontSize: 13, border: "1px solid " + th.border }}>
+      Реклама РСЯ
     </div>
   );
 }
@@ -759,7 +727,7 @@ function App() {
   const [dark, setDark] = useState(true);
   const [li, setLi] = useState(0);
   const [page, setPage] = useState(1);
-  const [more, setMore] = useState(false);
+  const [more, setMore] = useState(false); const [cols, setCols] = useState(() => { try { return parseInt(localStorage.getItem("ph-cols")) || 3; } catch (e) { return 3; } }); const [narrow, setNarrow] = useState(window.innerWidth < 700); useEffect(() => { const onR = () => setNarrow(window.innerWidth < 700); window.addEventListener("resize", onR); return () => window.removeEventListener("resize", onR); }, []); const setCols2 = (n) => { setCols(n); try { localStorage.setItem("ph-cols", n); } catch (e) {} }; const effCols = narrow ? 1 : cols;
   
   const [infoRepo, setInfoRepo] = useState(null);
   const [trOpen, setTrOpen] = useState(false);
@@ -788,6 +756,8 @@ function App() {
     tag: "#0969da", adBg: "#f0f0f0", footBg: "#f6f8fa",
   };
 
+  const _gcache = {};
+
   const fetchPlugins = useCallback(async (pg, append) => {
     setLoading(true); setErr(null);
     try {
@@ -798,13 +768,30 @@ function App() {
       if (qt && qt !== "dsh-plugin") sq += "+" + qt;
       const sp = sort === "updated" ? "&sort=updated&order=desc" : sort === "name" ? "" : "&sort=stars&order=desc";
       const url = "https://api.github.com/search/repositories?q=" + encodeURIComponent(sq) + sp + "&per_page=30&page=" + pg;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || res.status);
-      if (append) setPlugins(prev => [...prev, ...(data.items || [])]);
-      else setPlugins(data.items || []);
-      setTotal(data.total_count || 0);
-      setMore(!!data.items && data.items.length === 30);
+      const key = url + "|" + pg;
+      const hit = _gcache[key];
+      let data;
+      if (hit && Date.now() - hit.t < 300000) { data = hit.d; }
+      else {
+        const res = await fetch(url);
+        data = await res.json();
+        if (!res.ok) throw new Error(data.message || res.status);
+        _gcache[key] = { t: Date.now(), d: data };
+      }
+      let items = data.items || [];
+      let totalCount = data.total_count || 0;
+      if (!append && c && c.topic && items.length === 0 && (!qt || qt === "dsh-plugin")) {
+        const KW = { tools: ["cli", "utility", "converter"], ui: ["ui", "interface", "sidebar"], llm: ["llm", "ollama", "gguf", "ai"], security: ["security", "antivirus", "scanner"], terminal: ["terminal", "tui", "console"], workflow: ["workflow", "automation", "agent"], theme: ["theme", "skin", "icon"] };
+        const kw = (KW[c.topic] || [c.topic]).join("+");
+        const url2 = "https://api.github.com/search/repositories?q=" + encodeURIComponent(kw + "+topic:dsh-plugin") + sp + "&per_page=30&page=" + pg;
+        const res2 = await fetch(url2);
+        const data2 = await res2.json();
+        if (res2.ok) { items = data2.items || []; totalCount = data2.total_count || 0; }
+      }
+      if (append) setPlugins(prev => [...prev, ...items]);
+      else setPlugins(items);
+      setTotal(totalCount);
+      setMore(items.length === 30);
     } catch (e) {
       setErr(String(e.message || e));
     } finally {
@@ -888,7 +875,7 @@ function App() {
         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 20, fontWeight: 700, whiteSpace: "nowrap" }}>
           <span style={{ fontSize: 28 }}>🔌</span> PluginHub
         </div>
-        <form onSubmit={e => { e.preventDefault(); fetchPlugins(1, false); setPage(1); }} style={{ flex: 1, minWidth: 180, display: "flex", gap: 8 }}>
+        <form onSubmit={e => { e.preventDefault(); fetchPlugins(1, false); setPage(1); }} style={{ flex: 1, minWidth: 180, display: "flex", gap: 8, flexWrap: "wrap" }}>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder={t("search")} style={{ flex: 1, ...inputStyle, background: th.input, border: "1px solid " + th.border }} />
           <button type="submit" style={primaryBtn}>{t("find")}</button>
         </form>
@@ -923,7 +910,7 @@ function App() {
           </button>
         ))}
       </div>
-            </header>
+            <div style={{ display: "flex", gap: 6, padding: "8px 20px", alignItems: "center", flexWrap: "wrap" }}><span style={{ color: th.dim, fontSize: 12 }}>{li === 0 ? "Вид:" : "Layout:"}</span>{[1, 2, 3].map(n => (<button key={n} onClick={() => setCols2(n)} style={{ padding: "4px 12px", borderRadius: 6, border: "1px solid " + (cols === n ? th.accent : th.border), background: cols === n ? th.accent : "transparent", color: cols === n ? "#fff" : th.dim, cursor: "pointer", fontSize: 12 }}>{n}</button>))}</div></header>
 
       <div style={{ padding: "4px 20px 8px", color: th.dim, fontSize: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span>{activeCat ? activeCat.desc[li] : ""}</span>
@@ -942,7 +929,7 @@ function App() {
         {loading && plugins.length === 0 && <div style={{ textAlign: "center", padding: 40, color: th.dim }}>{t("loading")}</div>}
         {err && <div style={{ textAlign: "center", padding: 40, color: "#f85149" }}>{t("error")}: {err}</div>}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(" + effCols + ", minmax(0, 1fr))", gap: 16 }}>
           {plugins.map(p => (
             <div key={p.id} style={{ background: th.card, border: "1px solid " + th.border, borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 10, transition: "all .2s" }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = th.accent; e.currentTarget.style.transform = "translateY(-2px)"; }}
@@ -974,13 +961,15 @@ function App() {
                 <CardMeta repo={p} />
                 <span style={{ marginLeft: "auto" }}>{t("updated")} {agoStr(p.updated_at, li)}</span>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button title={li === 0 ? "В пакет" : li === 1 ? "Add to pack" : "加入打包"} onClick={() => togglePack(p)}
                   style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid " + (pack.some(x => x.id === p.id) ? th.accent : th.border), background: pack.some(x => x.id === p.id) ? th.accent : "transparent", color: pack.some(x => x.id === p.id) ? "#fff" : th.dim, cursor: "pointer", fontSize: 13 }}>
                   {pack.some(x => x.id === p.id) ? "✓ " + (li === 0 ? "в пакете" : li === 1 ? "in pack" : "已加入") : "＋ " + (li === 0 ? "в пакет" : li === 1 ? "to pack" : "打包")}
                 </button>
-                <button style={greenBtn} onClick={() => downloadZip(p.full_name)}>{t("download")}</button>
-                <button style={ghostBtn} title={li === 0 ? "Перевести описание" : li === 1 ? "Translate description" : "翻译描述"} onClick={() => { setTrSeed(p.description || ""); setTrOpen(true); }}>🌍</button>
+                <button style={greenBtn} onClick={() => downloadZip(p.full_name, "gh")}>{li === 0 ? "Загрузка GitHub" : li === 1 ? "Download GitHub" : "GitHub"}</button>
+                <button style={ghostBtn} title="Download via mirror proxy" onClick={() => downloadZip(p.full_name)}>{li === 0 ? "Загрузка Proxy" : li === 1 ? "Download Proxy" : "Proxy"}</button>
+                <button style={ghostBtn} title="Download via ghfast.top mirror" onClick={() => downloadZip(p.full_name, "fast")}>{li === 0 ? "Загрузка Fast" : li === 1 ? "Download Fast" : "Fast"}</button>
+                <button style={ghostBtn} title={li === 0 ? "Перевести описание" : li === 1 ? "Translate description" : "翻译描述"} onClick={() => { setTrSeed(p.description || ""); setTrOpen(true); }}>{t("translator")}</button>
                 <button style={ghostBtn} onClick={() => setInfoRepo(p)}>{t("about")}</button>
               </div>
             </div>
@@ -1054,4 +1043,5 @@ function App() {
 }
 
 export default App;
+
 

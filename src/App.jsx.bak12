@@ -88,9 +88,13 @@ function agoStr(d, li) {
   return TR.yAgo[li].replace("{n}", Math.floor(diff / 365));
 }
 
-function downloadZip(fullName) {
+function downloadZip(fullName, kind) {
+  const ghUrl = "https://github.com/" + fullName + "/archive/HEAD.zip";
+  const url = kind === "gh" ? ghUrl
+    : kind === "fast" ? "https://ghfast.top/" + ghUrl
+    : "https://gh-proxy.com/" + ghUrl;
   const a = document.createElement("a");
-  a.href = "https://gh-proxy.com/https://github.com/" + fullName + "/archive/HEAD.zip";
+  a.href = url;
   a.target = "_blank"; a.rel = "noreferrer";
   document.body.appendChild(a); a.click(); a.remove();
 }
@@ -497,8 +501,6 @@ function ProfileModal({ user, li, onClose, onLogout, onPricing }) {
   const isRu = li === 0, isEn = li === 1;
   const planName = isRu ? "Бесплатно" : isEn ? "Free" : "免费";
   const planNote = isRu ? "5 ГБ трафика зеркала в месяц · до 3 плагинов в пакете · без рекламы" : isEn ? "5 GB mirror traffic per month · up to 3 plugins per pack · no ads" : "每月 5 GB 镜像流量 · 打包最多 3 个 · 无广告";
-    : isEn ? "5 GB mirror traffic per month · up to 3 plugins per pack · no ads"
-    : "每月 5 GB 镜像流量 · 打包最多 3 个 · 下载前广告";
   const pricing = isRu ? "Сменить тариф" : isEn ? "Change plan" : "更改套餐";
   const logout = isRu ? "Выйти" : isEn ? "Sign out" : "退出登录";
   const withUs = isRu ? "с нами" : isEn ? "with us" : "陪伴我们";
@@ -977,7 +979,9 @@ function App() {
                   style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid " + (pack.some(x => x.id === p.id) ? th.accent : th.border), background: pack.some(x => x.id === p.id) ? th.accent : "transparent", color: pack.some(x => x.id === p.id) ? "#fff" : th.dim, cursor: "pointer", fontSize: 13 }}>
                   {pack.some(x => x.id === p.id) ? "✓ " + (li === 0 ? "в пакете" : li === 1 ? "in pack" : "已加入") : "＋ " + (li === 0 ? "в пакет" : li === 1 ? "to pack" : "打包")}
                 </button>
-                <button style={greenBtn} onClick={() => downloadZip(p.full_name)}>{t("download")}</button>
+                <button style={greenBtn} onClick={() => downloadZip(p.full_name, "gh")}>{li === 0 ? "Загрузка GitHub" : li === 1 ? "Download GitHub" : "GitHub"}</button>
+                <button style={ghostBtn} title="Download via mirror proxy" onClick={() => downloadZip(p.full_name)}>{li === 0 ? "Загрузка Proxy" : li === 1 ? "Download Proxy" : "Proxy"}</button>
+                <button style={ghostBtn} title="Download via ghfast.top mirror" onClick={() => downloadZip(p.full_name, "fast")}>{li === 0 ? "Загрузка Fast" : li === 1 ? "Download Fast" : "Fast"}</button>
                 <button style={ghostBtn} title={li === 0 ? "Перевести описание" : li === 1 ? "Translate description" : "翻译描述"} onClick={() => { setTrSeed(p.description || ""); setTrOpen(true); }}>🌍</button>
                 <button style={ghostBtn} onClick={() => setInfoRepo(p)}>{t("about")}</button>
               </div>
