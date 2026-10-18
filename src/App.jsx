@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 
 const LANGS = [
   { code: "ru", label: "RU" },
@@ -825,48 +825,36 @@ function App() {
     : "平台：Windows · Linux · Android · iOS · 浏览器";
   const socialLabel = li === 0 ? "Соцсети:" : li === 1 ? "Social:" : "社交：";
   const availWord = li === 0 ? "доступно для скачивания" : li === 1 ? "available for download" : "可下载";
+  const dlWord = li === 0 ? "скачиваний всего" : li === 1 ? "downloads in total" : "\u603b\u4e0b\u8f7d";
+  const dlTip = [dlLabel.h, dlLabel.d, dlLabel.w]
+    .map((w, k) => w + ": " + [dl.hour, dl.today, dl.week][k].toLocaleString())
+    .join(" � ");
+
+  const SOCIALS = [
+    { i: "\u2709\ufe0f", n: "E-mail", u: "mailto:gorelov8business@gmail.com" },
+    { i: "\ud83d\udcac", n: "WhatsApp Business", u: "https://wa.me/79505793201" },
+    { i: "\ud83d\udfe2", n: "MAX", u: "https://max.ru/u/f9LHodD0cOKYNaEcNaqKkR0YWam2Zu6PLq0OkBdVs1MJMEhd0jludaVSNPw" },
+    { i: "\u25b6\ufe0f", n: "YouTube", u: "https://www.youtube.com/@viktorgamesandbusinessgore440" },
+    { i: "\ud83d\udccc", n: "Pinterest", u: "https://ru.pinterest.com/555gorell" },
+    { i: "\u2716\ufe0f", n: "X / Twitter", u: "https://x.com/555gorell1" },
+    { i: "\ud83e\uddf5", n: "Threads", u: "https://www.threads.com/@tenstarsdesign" },
+  ];
+
   const footerCols = [
-    { title: t("aboutUs"), items: [t("aboutText")], text: true },
-    { title: t("platform"), sub: li === 0 ? "Каталог обновляется сам: новые репозитории с темой dsh-plugin подхватываются без очереди" : li === 1 ? "The catalog updates itself: new dsh-plugin repos appear automatically" : "目录自动更新，无需等待", items: [
-      { i: "🌐", n: t("allPlugins") + " — " + fmtNum(total), act: "all" },
-      t("categories") + " — " + (CATS.length - 1) + (li === 0 ? " (7 тем + «Все»)" : ""),
-      { i: "⭐", n: t("top"), act: "top" },
-      { i: "🆕", n: t("fresh"), act: "fresh" },
+    { title: t("aboutUs"), text: true, items: [t("aboutText")] },
+    { title: t("platform"), sub: li === 0 ? "\u041a\u0430\u0442\u0430\u043b\u043e\u0433 \u043e\u0431\u043d\u043e\u0432\u043b\u044f\u0435\u0442\u0441\u044f \u0441\u0430\u043c: \u043d\u043e\u0432\u044b\u0435 \u0440\u0435\u043f\u043e\u0437\u0438\u0442\u043e\u0440\u0438\u0438 \u0441 \u0442\u0435\u043c\u043e\u0439 dsh-plugin \u043f\u043e\u0434\u0445\u0432\u0430\u0442\u044b\u0432\u0430\u044e\u0442\u0441\u044f \u0431\u0435\u0437 \u043e\u0447\u0435\u0440\u0435\u0434\u0438" : li === 1 ? "The catalog updates itself: new dsh-plugin repos appear automatically" : "\u76ee\u5f55\u81ea\u52a8\u66f4\u65b0\uff0c\u65e0\u9700\u7b49\u5f85", items: [
+      { i: "\ud83c\udf10", n: t("allPlugins") + " \u2014 " + fmtNum(total), act: "all" },
+      t("categories") + " \u2014 " + (CATS.length - 1),
+      { i: "\u2b50", n: t("top"), act: "top" },
+      { i: "\ud83c\udf1f", n: t("fresh"), act: "fresh" },
       platforms,
     ]},
-    { title: "📊 " + (li === 0 ? "Скачивания" : li === 1 ? "Downloads" : "下载统计"), items: [
-      dlLabel.h + ": " + dl.hour,
-      dlLabel.d + ": " + dl.today,
-      dlLabel.w + ": " + dl.week,
-      dlLabel.t + ": " + fmtNum(dl.total),
-      dlLabel.note,
+    { title: t("forDevs"), sub: li === 0 ? "\u041f\u0443\u0431\u043b\u0438\u043a\u0443\u0435\u0442\u0435 \u0440\u0435\u043f\u043e\u0437\u0438\u0442\u043e\u0440\u0438\u0439 \u043d\u0430 GitHub \u2014 \u043a\u0430\u0442\u0430\u043b\u043e\u0433 \u0437\u0430\u043c\u0435\u0447\u0430\u0435\u0442 \u0435\u0433\u043e \u0441\u0430\u043c" : li === 1 ? "Publish a GitHub repo \u2014 the catalog picks it up automatically" : "\u53d1\u5e03 GitHub \u4ed3\u5e93\u5373\u81ea\u52a8\u6536\u5f55", items: [
+      t("uploadPlugin") + " \u2014 " + fmtNum(total) + " " + availWord,
+      { i: "�", n: "GitHub Search API \u2014 " + (li === 0 ? "\u043f\u043e\u0438\u0441\u043a \u043f\u043b\u0430\u0433\u0438\u043d\u043e\u0432" : li === 1 ? "plugin search" : "\u63d2\u4ef6\u641c\u7d22"), u: "https://docs.github.com/rest/search" },
+      { i: "�", n: "GitHub Repos API \u2014 " + (li === 0 ? "\u0434\u0435\u0442\u0430\u043b\u0438, \u043b\u0438\u0446\u0435\u043d\u0437\u0438\u0438, \u0440\u0430\u0437\u043c\u0435\u0440" : li === 1 ? "details, licenses, size" : "\u8be6\u60c5\u3001\u8bb8\u53ef\u3001\u5927\u5c0f"), u: "https://docs.github.com/rest/repos/repos" },
     ]},
-    { title: t("forDevs"), sub: li === 0 ? "Публикуете репозиторий на GitHub — каталог замечает его сам" : li === 1 ? "Publish a GitHub repo — the catalog picks it up automatically" : "发布 GitHub 仓库即自动收录", items: [
-      t("uploadPlugin") + " — " + fmtNum(total) + " " + availWord,
-      t("docs"),
-      "API:",
-      { i: "·", n: "GitHub Search API — " + (li === 0 ? "поиск плагинов" : li === 1 ? "plugin search" : "插件搜索"), u: "https://docs.github.com/rest/search" },
-      { i: "·", n: "GitHub Repos API — " + (li === 0 ? "детали, лицензии, размер" : li === 1 ? "details, licenses, size" : "详情、许可、大小"), u: "https://docs.github.com/rest/repos/repos" },
-      { i: "·", n: "Переводчик — Google + MyMemory (запас)", u: "https://mymemory.translated.net/doc/spec.php" },
-      { i: "·", n: "VirusTotal API — " + (li === 0 ? "проверка файлов (план)" : li === 1 ? "file scan (planned)" : "文件扫描（计划）"), u: "https://docs.virustotal.com/" },
-    ]},
-    { title: t("info"), sub: li === 0 ? "Мы на связи во всех сетях — выбирайте любую" : li === 1 ? "We are on every network — pick any" : "全平台在线", items: [
-      socialLabel,
-      { i: "📞", n: "E-mail", u: "mailto:gorelov8business@gmail.com" },
-      { i: "💬", n: "WhatsApp Business", u: "https://wa.me/79505793201" },
-      { i: "✈️", n: "Telegram", u: "#" },
-      { i: "🟢", n: "MAX", u: "https://max.ru/u/f9LHodD0cOKYNaEcNaqKkR0YWam2Zu6PLq0OkBdVs1MJMEhd0jludaVSNPw" },
-      { i: "🔵", n: "VK", u: "#" },
-      { i: "▶️", n: "YouTube", u: "https://www.youtube.com/@viktorgamesandbusinessgore440" },
-      { i: "📺", n: "Rutube", u: "#" },
-      { i: "📌", n: "Pinterest", u: "https://ru.pinterest.com/555gorell" },
-      { i: "🟠", n: "Одноклассники", u: "#" },
-      { i: "📘", n: "Facebook", u: "https://www.facebook.com/Ten-Stars-Design-2081341318827570/" },
-      { i: "📷", n: "Instagram", u: "#" },
-      { i: "✖️", n: "Twitter / X", u: "https://x.com/555gorell1" },
-      { i: "🧵", n: "Threads", u: "https://www.threads.com/@tenstarsdesign" },
-      { i: "🎮", n: "Discord", u: "#" },      t("terms"), t("privacy"), t("moderation"), t("contact"),
-    ]},
+    { title: t("info"), items: [t("terms"), t("privacy"), t("moderation"), t("contact")] },
   ];
 
   return (
@@ -988,23 +976,20 @@ function App() {
       </div>
 
       <footer style={{ background: th.footBg, borderTop: "1px solid " + th.border, padding: "32px 20px 20px", marginTop: 20 }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 24 }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 24 }}>
           {footerCols.map((col, i) => (
             <div key={i}>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{col.title}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>{col.title}</div>
               {col.sub && <div style={{ color: th.dim, fontSize: 12, marginBottom: 8, lineHeight: 1.5 }}>{col.sub}</div>}
-              {col.tablo ? (
-                <div>
-                  {col.items.map((lb, j) => (
-                    <div key={j} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 13, padding: "3px 0", color: th.dim, fontFamily: "Consolas, monospace" }}>
-                      <span>{lb}</span>
-                      <span style={{ color: "#3fb950", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{col.vals[j].toLocaleString("ru-RU")}</span>
-                    </div>
-                  ))}
-                  {col.note && <div style={{ color: th.dim, fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>{col.note}</div>}
+              {col.text ? (
+                <div style={{ color: th.dim, fontSize: 13, lineHeight: 1.6, maxWidth: 340 }}>
+                  {col.items[0]}
+                  <div title={dlTip} style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 14, padding: "8px 14px", borderRadius: 10, border: "1px solid " + th.border, background: th.card, cursor: "help" }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 4, background: "#3fb950", boxShadow: "0 0 8px #3fb950" }} />
+                    <span style={{ fontSize: 16, fontWeight: 700, color: th.text, fontVariantNumeric: "tabular-nums" }}>{fmtNum(dl.total)}</span>
+                    <span style={{ fontSize: 12, color: th.dim }}>{dlWord}</span>
+                  </div>
                 </div>
-              ) : col.text ? (
-                <div style={{ color: th.dim, fontSize: 13, lineHeight: 1.6 }}>{col.items[0]}</div>
               ) : (
                 col.items.map((it, j) =>
                   it && typeof it === "object" && it.act ? (
@@ -1023,10 +1008,16 @@ function App() {
             </div>
           ))}
         </div>
-        <div style={{ maxWidth: 1200, margin: "24px auto 0", paddingTop: 16, borderTop: "1px solid " + th.border, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, color: th.dim, fontSize: 12 }}>
-          <span>© 2026 PluginHub · {t("rights")}</span>
-          <span>GitHub API</span>
-          <span>Instagram и Facebook принадлежат Meta — признана экстремистской и запрещена в РФ</span>
+        <div style={{ maxWidth: 1200, margin: "24px auto 0", paddingTop: 16, borderTop: "1px solid " + th.border, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, color: th.dim, fontSize: 12 }}>
+          <span>© 2026 PluginHub · {li === 0 ? "\u041f\u0440\u043e\u0435\u043a\u0442 \u0441\u043e\u043e\u0431\u0449\u0435\u0441\u0442\u0432\u0430 DSH" : li === 1 ? "A DSH community project" : "DSH \u793e\u533a\u9879\u76ee"}</span>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {SOCIALS.map(s => (
+              <a key={s.n} href={s.u} target={s.u.startsWith("mailto") ? undefined : "_blank"} rel="noreferrer" title={s.n}
+                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: 8, border: "1px solid " + th.border, background: th.card, fontSize: 15, textDecoration: "none", transition: "all .15s" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = th.accent; e.currentTarget.style.background = th.tagBg; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = th.border; e.currentTarget.style.background = th.card; }}>{s.i}</a>
+            ))}
+          </div>
           <span>v0.6.3</span>
         </div>
       </footer>
@@ -1043,5 +1034,6 @@ function App() {
 }
 
 export default App;
+
 
 
